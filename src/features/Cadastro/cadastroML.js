@@ -10,7 +10,7 @@ const apiRede = new RedeAPI();
 
 module.exports = function (controller) {
 
-    /*******
+    /***********************************************************************************************************
 
 
     Sessão de Cadastro
@@ -18,7 +18,7 @@ module.exports = function (controller) {
     Novo Hears
 
 
-    *******/
+    ************************************************************************************************************/
 
     controller.hears([new RegExp(/gostaria de me cadastrar$/i), 
                     new RegExp(/Gostaria de cadastrar no locker (\S+)$/i),], 'message,direct_message', async (bot, message) => {
