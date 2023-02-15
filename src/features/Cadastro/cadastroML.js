@@ -393,6 +393,113 @@ module.exports = function (controller) {
     });
 
 
+    /****************************************************************************************************************
+
+
+    Sessão de Mídia Social
+
+    Novo Hears
+
+
+    *****************************************************************************************************************/
+
+
+    controller.hears([new RegExp(/gostaria de saber os preços$/i), 
+                    new RegExp(/preços$/i), 
+                    new RegExp(/preciso dos preços$/i), 
+                    new RegExp(/preço$/i), 
+                    new RegExp(/gostaria dos preços$/i)], 'message,direct_message', async (bot, message) => {
+
+        function say(text) {
+            return {
+                text: text,
+                channelData: {
+                    ...message?.incoming_message?.channelData,
+                    text: text
+                }
+            }
+        }
+
+        let mensagemFull = message.matches[0];
+        let lockerID = message.matches[1];
+        let lockerName = message.matches[1];
+        let MY_DIALOG_ID = `${message?.user}${'Cadastro'}` || 'my-dialog-name-robot';
+        let convo = new BotkitConversation(MY_DIALOG_ID, controller);
+
+        convo.before('default', (convo, bot) => {
+            // console.log('Default', lockerID, lockerName);
+            convo.setVar(`name`, message?.channelData?.data?.pushname);
+            // convo.setVar(`lockerID`, lockerID);
+            // convo.setVar(`lockerName`, lockerName);
+            // convo.setVar(`countSize`, 0);
+        });
+
+        //fazer checagem se número da pessoa está ou não cadastrado na empresa, por meio da api
+
+        //nome = api.response
+
+        convo.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para calcular o orçamento.`), 'notLoggedDB');
+
+        convo.addMessage(say(`Bem-vindo(a) ${nome}, sou o atendente da Meu Locker e estou disponível para calcular o orçamento.`), 'loggedDB');
+
+        convo.addAction('stepAskProblem');
+        convo.addQuestion(say(`?`), [
+            {
+                pattern: "",
+                handler: async (response, convo, bot) => {
+                    console.log(response)
+                    await convo.gotoThread('stepNome');
+                }
+            },
+            {
+                pattern: "",
+                handler: async (response, convo, bot) => {
+                    console.log(response)
+                    await convo.gotoThread('stepCelular');
+                }
+            },
+            {
+                pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+                handler: async (response, convo, bot) => {
+                    console.log(response)
+                    convo.step.state.values.endConvo = true
+                    console.log(convo.step.state.values)
+                    await convo.gotoThread('end_convo')
+                }
+            },
+            {
+                default: true,
+                handler: async (response, convo, bot) => {
+                    console.log(response)
+                    await convo.gotoThread('suporteQuestion_err');
+                }
+            }
+        ], 'suporteQuestion', 'stepAskProblem');
+
+        convo.addMessage(say('Não entendi sua resposta, repita por favor', message), 'suporteQuestion_err')
+        convo.addAction('stepCelularQuestion', 'suporteQuestion_err')
+
+        convo.addMessage(say('Cadastro cancelado.'), 'end_convo')
+        convo.addAction('end_convo_without_results', 'end_convo')
+
+        controller.addDialog(convo);
+
+        convo.addAction('end_convo_without_results')
+
+        controller.afterDialog(MY_DIALOG_ID, async (bot, results) => {
+            await bot.cancelAllDialogs();
+
+            //recebe os resultados de todos os campos preenchidos para enviar para a api
+
+            console.log('RESULTS', results);
+        });
+
+
+
+        await bot.beginDialog(MY_DIALOG_ID);
+    });
+
+
 }
 
 function addSimbolos(num){
