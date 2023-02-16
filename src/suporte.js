@@ -35,6 +35,7 @@ if (process.env.MONGO_URI) {
   });
 }
 
+
 //WhatsApp Server
 const client = new Client(SESSION_NAME, receiveMessage);
 

@@ -21,7 +21,7 @@ module.exports = function (controller) {
     ************************************************************************************************************/
 
     controller.hears([new RegExp(/gostaria de me cadastrar$/i), 
-                    new RegExp(/Gostaria de cadastrar no locker (\S+)$/i),], 'message,direct_message', async (bot, message) => {
+                    new RegExp(/Gostaria de cadastrar no locker (\S+)$/i)], 'message,direct_message', async (bot, message) => {
 
         function say(text) {
             return {
@@ -32,6 +32,8 @@ module.exports = function (controller) {
                 }
             }
         }
+
+        console.log(message)
 
         let mensagemFull = message.matches[0];
         let lockerID = message.matches[1];
@@ -283,6 +285,7 @@ module.exports = function (controller) {
 
 
         await bot.beginDialog(MY_DIALOG_ID);
+
     });
 
     /****************************************************************************************************************
@@ -316,71 +319,62 @@ module.exports = function (controller) {
         let mensagemFull = message.matches[0];
         let lockerID = message.matches[1];
         let lockerName = message.matches[1];
-        let MY_DIALOG_ID = `${message?.user}${'Cadastro'}` || 'my-dialog-name-robot';
-        let convo = new BotkitConversation(MY_DIALOG_ID, controller);
+        let MY_DIALOG_ID = `${message?.user}${'Suporte'}` || 'my-dialog-name-robot';
+        let convoSuporte = new BotkitConversation(MY_DIALOG_ID, controller);
 
-        convo.before('default', (convo, bot) => {
+        convoSuporte.before('default', (convoSuporte, bot) => {
             // console.log('Default', lockerID, lockerName);
-            convo.setVar(`name`, message?.channelData?.data?.pushname);
+            convoSuporte.setVar(`name`, message?.channelData?.data?.pushname);
             // convo.setVar(`lockerID`, lockerID);
             // convo.setVar(`lockerName`, lockerName);
             // convo.setVar(`countSize`, 0);
         });
 
+        console.log('foi suporte')
+
         //fazer checagem se número da pessoa está ou não cadastrado na empresa, por meio da api
 
         //nome = api.response
 
-        convo.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para solucionar seus problemas e dúvidas.`), 'notLoggedDB');
+        convoSuporte.addAction('notLoggedDB')
+        convoSuporte.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para solucionar seus problemas e dúvidas.`), 'notLoggedDB');
 
-        //convo.addMessage(say(`Bem-vindo(a) ${nome}, sou o atendente da Meu Locker e estou disponível para solucionar seus problemas e dúvidas.`), 'loggedDB');
+        //convoSuporte.addMessage(say(`Bem-vindo(a) ${nome}, sou o atendente da Meu Locker e estou disponível para solucionar seus problemas e dúvidas.`), 'loggedDB');
 
-        convo.addAction('stepAskProblem');
-        convo.addQuestion(say(`Qual é o problema que está tendo?`), [
-            {
-                pattern: "",
-                handler: async (response, convo, bot) => {
-                    console.log(response)
-                    await convo.gotoThread('stepNome');
-                }
-            },
-            {
-                pattern: "",
-                handler: async (response, convo, bot) => {
-                    console.log(response)
-                    await convo.gotoThread('stepCelular');
-                }
-            },
+        convoSuporte.addAction('stepAskProblem', 'notLoggedDB');
+        convoSuporte.addQuestion(say(`Qual é o problema que está tendo?`), [
             {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
-                handler: async (response, convo, bot) => {
+                handler: async (response, convoSuporte, bot) => {
                     console.log(response)
-                    convo.step.state.values.endConvo = true
-                    console.log(convo.step.state.values)
-                    await convo.gotoThread('end_convo')
+                    convoSuporte.step.state.values.endconvoSuporte = true
+                    console.log(convoSuporte.step.state.values)
+                    await convoSuporte.gotoThread('end_convoSuporte')
                 }
             },
             {
                 default: true,
-                handler: async (response, convo, bot) => {
+                handler: async (response, convoSuporte, bot) => {
                     console.log(response)
-                    await convo.gotoThread('suporteQuestion_err');
+                    await convoSuporte.gotoThread('suporteQuestion_err');
                 }
             }
         ], 'suporteQuestion', 'stepAskProblem');
 
-        convo.addMessage(say('Não entendi sua resposta, repita por favor', message), 'suporteQuestion_err')
-        convo.addAction('stepCelularQuestion', 'suporteQuestion_err')
+        convoSuporte.addMessage(say('Não entendi sua resposta, repita por favor', message), 'suporteQuestion_err')
+        convoSuporte.addAction('stepAskProblem', 'suporteQuestion_err')
 
-        convo.addMessage(say('Cadastro cancelado.'), 'end_convo')
-        convo.addAction('end_convo_without_results', 'end_convo')
+        convoSuporte.addMessage(say('suporte cancelado.'), 'end_convoSuporte')
+        convoSuporte.addAction('end_convoSuporte_without_results', 'end_convoSuporte')
 
-        controller.addDialog(convo);
+        controller.addDialog(convoSuporte);
 
-        convo.addAction('end_convo_without_results')
+        convoSuporte.addAction('end_convoSuporte_without_results')
 
         controller.afterDialog(MY_DIALOG_ID, async (bot, results) => {
             await bot.cancelAllDialogs();
+
+            console.log('chgoue no final')
 
             //recebe os resultados de todos os campos preenchidos para enviar para a api
 
@@ -427,55 +421,56 @@ module.exports = function (controller) {
         let mensagemFull = message.matches[0];
         let lockerID = message.matches[1];
         let lockerName = message.matches[1];
-        let MY_DIALOG_ID = `${message?.user}${'Cadastro'}` || 'my-dialog-name-robot';
-        let convo = new BotkitConversation(MY_DIALOG_ID, controller);
+        let MY_DIALOG_ID = `${message?.user}${'Media'}` || 'my-dialog-name-robot';
+        let convoMedia = new BotkitConversation(MY_DIALOG_ID, controller);
 
-        convo.before('default', (convo, bot) => {
+        convoMedia.before('default', (convoMedia, bot) => {
             // console.log('Default', lockerID, lockerName);
-            convo.setVar(`name`, message?.channelData?.data?.pushname);
-            // convo.setVar(`lockerID`, lockerID);
-            // convo.setVar(`lockerName`, lockerName);
-            // convo.setVar(`countSize`, 0);
+            convoMedia.setVar(`name`, message?.channelData?.data?.pushname);
+            // convoMedia.setVar(`lockerID`, lockerID);
+            // convoMedia.setVar(`lockerName`, lockerName);
+            // convoMedia.setVar(`countSize`, 0);
         });
 
-        convo.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para calcular o seu orçamento.`), 'notLoggedDB');
+        convoMedia.addAction('notLoggedDB')
+        convoMedia.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para calcular o seu orçamento.`), 'notLoggedDB');
 
-        convo.addAction('stepAskOrcamento');
-        convo.addQuestion(say(`Quantos apartamentos existem no seu condomínio?`), [
+        convoMedia.addAction('stepAskOrcamento', 'notLoggedDB');
+        convoMedia.addQuestion(say(`Quantos apartamentos existem no seu condomínio?`), [
             {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
-                handler: async (response, convo, bot) => {
+                handler: async (response, convoMedia, bot) => {
                     console.log(response)
-                    convo.step.state.values.endConvo = true
-                    console.log(convo.step.state.values)
-                    await convo.gotoThread('end_convo')
+                    convoMedia.step.state.values.endconvoMedia = true
+                    console.log(convoMedia.step.state.values)
+                    await convoMedia.gotoThread('end_convoMedia')
                 }
             },
             {
                 default: true,
-                handler: async (response, convo, bot) => {
+                handler: async (response, convoMedia, bot) => {
                     console.log(response)
                     if(true){
 
                     }
-                    await convo.gotoThread('');
+                    await convoMedia.gotoThread('');
                 }
             }
         ], 'orcamento', 'stepAskOrcamento');
 
-        convo.addMessage(say('Não entendi sua resposta, repita por favor', message), 'orcamento_err')
-        convo.addAction('stepCelularQuestion', 'orcamento_err')
+        convoMedia.addMessage(say('Não entendi sua resposta, repita por favor', message), 'orcamento_err')
+        convoMedia.addAction('stepCelularQuestion', 'orcamento_err')
 
 
 
 
 
-        convo.addMessage(say('Cadastro cancelado.'), 'end_convo')
-        convo.addAction('end_convo_without_results', 'end_convo')
+        convoMedia.addMessage(say('Cálculo de orçamento cancelado.'), 'end_convoMedia')
+        convoMedia.addAction('end_convoMedia_without_results', 'end_convoMedia')
 
-        controller.addDialog(convo);
+        controller.addDialog(convoMedia);
 
-        convo.addAction('end_convo_without_results')
+        convoMedia.addAction('end_convoMedia_without_results')
 
         controller.afterDialog(MY_DIALOG_ID, async (bot, results) => {
             await bot.cancelAllDialogs();
