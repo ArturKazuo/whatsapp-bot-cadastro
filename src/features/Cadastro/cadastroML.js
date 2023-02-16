@@ -333,7 +333,7 @@ module.exports = function (controller) {
 
         convo.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para solucionar seus problemas e dúvidas.`), 'notLoggedDB');
 
-        convo.addMessage(say(`Bem-vindo(a) ${nome}, sou o atendente da Meu Locker e estou disponível para solucionar seus problemas e dúvidas.`), 'loggedDB');
+        //convo.addMessage(say(`Bem-vindo(a) ${nome}, sou o atendente da Meu Locker e estou disponível para solucionar seus problemas e dúvidas.`), 'loggedDB');
 
         convo.addAction('stepAskProblem');
         convo.addQuestion(say(`Qual é o problema que está tendo?`), [
@@ -408,7 +408,11 @@ module.exports = function (controller) {
                     new RegExp(/preços$/i), 
                     new RegExp(/preciso dos preços$/i), 
                     new RegExp(/preço$/i), 
-                    new RegExp(/gostaria dos preços$/i)], 'message,direct_message', async (bot, message) => {
+                    new RegExp(/gostaria dos preços$/i),
+                    new RegExp(/orçamento$/i), 
+                    new RegExp(/gostaria de saber o orçamento$/i), 
+                    new RegExp(/preciso do orçamento$/i),
+                    new RegExp(/gostaria do orçamento$/i)], 'message,direct_message', async (bot, message) => {
 
         function say(text) {
             return {
@@ -434,30 +438,10 @@ module.exports = function (controller) {
             // convo.setVar(`countSize`, 0);
         });
 
-        //fazer checagem se número da pessoa está ou não cadastrado na empresa, por meio da api
+        convo.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para calcular o seu orçamento.`), 'notLoggedDB');
 
-        //nome = api.response
-
-        convo.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para calcular o orçamento.`), 'notLoggedDB');
-
-        convo.addMessage(say(`Bem-vindo(a) ${nome}, sou o atendente da Meu Locker e estou disponível para calcular o orçamento.`), 'loggedDB');
-
-        convo.addAction('stepAskProblem');
-        convo.addQuestion(say(`?`), [
-            {
-                pattern: "",
-                handler: async (response, convo, bot) => {
-                    console.log(response)
-                    await convo.gotoThread('stepNome');
-                }
-            },
-            {
-                pattern: "",
-                handler: async (response, convo, bot) => {
-                    console.log(response)
-                    await convo.gotoThread('stepCelular');
-                }
-            },
+        convo.addAction('stepAskOrcamento');
+        convo.addQuestion(say(`Quantos apartamentos existem no seu condomínio?`), [
             {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
                 handler: async (response, convo, bot) => {
@@ -471,13 +455,20 @@ module.exports = function (controller) {
                 default: true,
                 handler: async (response, convo, bot) => {
                     console.log(response)
-                    await convo.gotoThread('suporteQuestion_err');
+                    if(true){
+
+                    }
+                    await convo.gotoThread('');
                 }
             }
-        ], 'suporteQuestion', 'stepAskProblem');
+        ], 'orcamento', 'stepAskOrcamento');
 
-        convo.addMessage(say('Não entendi sua resposta, repita por favor', message), 'suporteQuestion_err')
-        convo.addAction('stepCelularQuestion', 'suporteQuestion_err')
+        convo.addMessage(say('Não entendi sua resposta, repita por favor', message), 'orcamento_err')
+        convo.addAction('stepCelularQuestion', 'orcamento_err')
+
+
+
+
 
         convo.addMessage(say('Cadastro cancelado.'), 'end_convo')
         convo.addAction('end_convo_without_results', 'end_convo')
