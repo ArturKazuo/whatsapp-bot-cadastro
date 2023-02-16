@@ -347,7 +347,7 @@ module.exports = function (controller) {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
                 handler: async (response, convoSuporte, bot) => {
                     console.log(response)
-                    convoSuporte.step.state.values.endconvoSuporte = true
+                    convoSuporte.step.state.values.endConvoSuporte = true
                     console.log(convoSuporte.step.state.values)
                     await convoSuporte.gotoThread('end_convoSuporte')
                 }
@@ -364,7 +364,7 @@ module.exports = function (controller) {
         convoSuporte.addMessage(say('Não entendi sua resposta, repita por favor', message), 'suporteQuestion_err')
         convoSuporte.addAction('stepAskProblem', 'suporteQuestion_err')
 
-        convoSuporte.addMessage(say('suporte cancelado.'), 'end_convoSuporte')
+        convoSuporte.addMessage(say('Suporte cancelado.'), 'end_convoSuporte')
         convoSuporte.addAction('end_convoSuporte_without_results', 'end_convoSuporte')
 
         controller.addDialog(convoSuporte);
@@ -374,9 +374,9 @@ module.exports = function (controller) {
         controller.afterDialog(MY_DIALOG_ID, async (bot, results) => {
             await bot.cancelAllDialogs();
 
-            console.log('chgoue no final')
-
-            //recebe os resultados de todos os campos preenchidos para enviar para a api
+            if(!results.endConvoSuporte){
+                //recebe os resultados de todos os campos preenchidos para enviar para a api
+            }
 
             console.log('RESULTS', results);
         });
@@ -441,7 +441,7 @@ module.exports = function (controller) {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
                 handler: async (response, convoMedia, bot) => {
                     console.log(response)
-                    convoMedia.step.state.values.endconvoMedia = true
+                    convoMedia.step.state.values.endConvoMedia = true
                     console.log(convoMedia.step.state.values)
                     await convoMedia.gotoThread('end_convoMedia')
                 }
@@ -475,6 +475,9 @@ module.exports = function (controller) {
         controller.afterDialog(MY_DIALOG_ID, async (bot, results) => {
             await bot.cancelAllDialogs();
 
+            if(!results.endConvoMedia){
+
+            }
             //recebe os resultados de todos os campos preenchidos para enviar para a api
 
             console.log('RESULTS', results);
@@ -527,8 +530,9 @@ function checkNome(nome){
     let bool = true
     for(let i=0; i<nome.length; i++){
         console.log(nome.charAt(i))
-        if(nome.charAt(i) < 65 || (nome.charAt(i) > 90 && nome.charAt(i) < 97) || nome.charAt(i).charCodeAt(0) > 122){
-            if(nome.charAt(i) == ' '){
+        console.log(nome.charAt(i).charCodeAt(0))
+        if(nome.charAt(i).charCodeAt(0) < 65 || (nome.charAt(i).charCodeAt(0) > 90 && nome.charAt(i).charCodeAt(0) < 97) || nome.charAt(i).charCodeAt(0) > 122){
+            if(nome.charAt(i) == ' ' || nome.charAt(i).charCodeAt(0) > 127){
                 bool = true
             }   
             else if(nome.charAt(i).charCodeAt(0) > 122){
@@ -540,7 +544,6 @@ function checkNome(nome){
                 break;
             }
         }
-        console.log(nome.charAt(i).charCodeAt(0))
     }
 
     return bool
