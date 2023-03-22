@@ -3,12 +3,34 @@
  * Licensed under the MIT License.
  */
 const { Botkit, BotkitConversation } = require('botkit');
+const { BotkitCMSHelper } = require('botkit-plugin-cms');
 // const say = require('../../utils/say');
 // const sayQrcode = require('../../utils/sayQrcode');
-const RedeAPI = require('../../components/apiRede1Minuto');
-const apiRede = new RedeAPI();
+const MeuLockerAPI = require('../../components/apiMeuLocker');
+const apiML = new MeuLockerAPI();
+const { BotkitCmsLocalPlugin } = require('botkit-plugin-cms');
+let APICount = 0;
 
 module.exports = function (controller) {
+
+//     let cms = new BotkitCMSHelper({
+//         uri: 'http://localhost:3001',
+//         token: 'TOKENBOTKIT'
+//     });
+
+//    // use the cms to test remote triggers
+//     controller.on('message', async(bot, message) => {
+//         await controller.plugins.cms.testTrigger(bot, message);
+//     });
+    
+    // controller.usePlugin(cms);
+
+    // var cms = require('botkit-cms')();
+    // cms.useLocalStudio(controller);
+
+    // cms.loadScriptsFromFile(__dirname + '/scripts.json').catch(function(err) {
+    //     console.error('Error loading scripts', err);
+    // });
 
     /***********************************************************************************************************
 
@@ -20,8 +42,8 @@ module.exports = function (controller) {
 
     ************************************************************************************************************/
 
-    controller.hears([new RegExp(/gostaria de me cadastrar$/i), 
-                    new RegExp(/Gostaria de cadastrar no locker (\S+)$/i)], 'message,direct_message', async (bot, message) => {
+    controller.hears([new RegExp(/gostaria de me cadastrar (.*)/i), 
+                    new RegExp(/gostaria de cadastrar no locker (\S+)/i)], 'message,direct_message', async (bot, message) => {
 
         function say(text) {
             return {
@@ -33,13 +55,18 @@ module.exports = function (controller) {
             }
         }
 
-        console.log(message)
-
         let mensagemFull = message.matches[0];
         let lockerID = message.matches[1];
         let lockerName = message.matches[1];
         let MY_DIALOG_ID = `${message?.user}${'Cadastro'}` || 'my-dialog-name-robot';
         let convo = new BotkitConversation(MY_DIALOG_ID, controller);
+
+        let celCad = message?.user;
+        var newCel = newCelF(celCad);
+
+        let userApi = await apiML.getUser(newCel);
+        //let condominiosAPI = await apiML.getCondominioByUser(newCel)
+        let condominioAPI = await apiML.getCondominio(lockerID)
 
         convo.before('default', (convo, bot) => {
             // console.log('Default', lockerID, lockerName);
@@ -49,21 +76,19 @@ module.exports = function (controller) {
             // convo.setVar(`countSize`, 0);
         });
 
-        //console.log(bot._config.context._activity)
-        convo.say(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para realizar o seu cadastro no sistema da empresa.`, message));
-        // convo.addAction('step2', 'step1');
 
-        convo.addAction('stepCelularQuestion');
-        var cel = bot._config.activity.channelData.user;
-        var newCel = '';
-        for(let i = 0; i < cel.length - 5; i++){
-            if(i == 4){
-                newCel += 9 + cel.charAt(i)
-            }
-            else{
-                newCel += cel.charAt(i)
-            }
-        }
+
+        // if(userApi){
+        //     convo.say(say(`Bem-vindo(a) ${userApi.nome}, sou o atendente da Meu Locker e estou disponível para realizar o seu cadastro no sistema da empresa.`, message));
+        //     convo.addAction('stop_bot_conversation')
+        // }
+        // else{
+        //     convo.say(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para realizar o seu cadastro no sistema da empresa.`, message));
+        //     convo.addAction('stop_bot_conversation')
+        // }
+        convo.say(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para realizar o seu cadastro no sistema da empresa.`, message));
+        convo.addAction('stop_bot_conversation')
+
         convo.addQuestion(say(`O cadastro será feito com o número ${addSimbolos(newCel)}?`), [
             {
                 pattern: "sim|Sim|ss|SS|Ss",
@@ -101,7 +126,6 @@ module.exports = function (controller) {
         convo.addMessage(say('Não entendi sua resposta, repita por favor', message), 'celQuestion_err')
         convo.addAction('stepCelularQuestion', 'celQuestion_err')
 
-        //convo.addAction('stepCelular', 'stepCelularQuestion');
         convo.addQuestion(say('Qual é o DDD e telefone a ser cadastrado?'), [
             {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
@@ -130,7 +154,6 @@ module.exports = function (controller) {
             }
         ], 'celular', 'stepCelular');
 
-        //convo.addAction('stepNomeOther');
         convo.addQuestion(say('Qual é o nome completo da pessoa que deseja cadastrar?'), [
             {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
@@ -146,6 +169,12 @@ module.exports = function (controller) {
                 handler: async (response, convo, bot) => {
                     console.log(response)
                     if(checkNome(response)){ //returns true or false
+                        // if(condominioAPI.bloco){
+                        //     await convo.gotoThread('stepBlocoOther')
+                        // }
+                        // else{
+                        //     await convo.gotoThread('stepAptoOther')
+                        // }
                         await convo.gotoThread('stepAptoOther')
                     }
                     else{
@@ -155,7 +184,6 @@ module.exports = function (controller) {
             }
         ], 'nome', 'stepNomeOther');
 
-        //convo.addAction('stepNome');
         convo.addQuestion(say('Qual é o seu nome completo?'), [
             {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
@@ -171,6 +199,13 @@ module.exports = function (controller) {
                 handler: async (response, convo, bot) => {
                     console.log(response)
                     if(checkNome(response)){ //returns true or false
+                        // if(condominioAPI.bloco){
+                        //     console.log("bloco")
+                        //     await convo.gotoThread('stepBloco')
+                        // }
+                        // else {
+                        //     await convo.gotoThread('stepApto')
+                        // }
                         await convo.gotoThread('stepApto')
                     }
                     else{
@@ -180,7 +215,49 @@ module.exports = function (controller) {
             }
         ], 'nome', 'stepNome');
 
-        //convo.addAction('stepApto', 'stepCelular');
+        // convo.addQuestion(say('Qual é o seu bloco de condomínio?'), [
+        //     {
+        //         pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.endConvo = true
+        //             console.log(convo.step.state.values)
+        //             await convo.gotoThread('end_convo')
+        //         }
+        //     },
+        //     {
+        //         default: true,
+        //         handler: async (response, convo, bot) => {
+        //             if(condominioAPI.ala){
+        //                 await convo.gotoThread('stepAla');
+        //             }
+        //             else{
+        //                 await convo.gotoThread("stepApto")
+        //             }
+        //             console.log(`bloco is ${response}`);
+        //         }
+        //     }
+        // ], 'bloco', 'stepBloco');
+
+        // convo.addQuestion(say('Qual é a ala em que seu apartamento se encontra?'), [
+        //     {
+        //         pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.endConvo = true
+        //             console.log(convo.step.state.values)
+        //             await convo.gotoThread('end_convo')
+        //         }
+        //     },
+        //     {
+        //         default: true,
+        //         handler: async (response, convo, bot) => {
+        //             await convo.gotoThread("stepApto")
+        //             console.log(`ala is ${response}`);
+        //         }
+        //     }
+        // ], 'ala', 'stepAla');
+
         convo.addQuestion(say('Qual é o seu apartamento?'), [
             {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
@@ -201,6 +278,49 @@ module.exports = function (controller) {
 
         convo.addAction('confirmation', 'stepApto');
 
+        // convo.addQuestion(say('Qual é o bloco do condomínio da pessoa que deseja cadastrar?'), [
+        //     {
+        //         pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.endConvo = true
+        //             console.log(convo.step.state.values)
+        //             await convo.gotoThread('end_convo')
+        //         }
+        //     },
+        //     {
+        //         default: true,
+        //         handler: async (response, convo, bot) => {
+        //             if(condominioAPI.ala){
+        //                 await convo.gotoThread('stepAlaOther');
+        //             }
+        //             else{
+        //                 await convo.gotoThread("stepAptoOther")
+        //             }
+        //             console.log(`bloco is ${response}`);
+        //         }
+        //     }
+        // ], 'bloco', 'stepBlocoOther');
+
+        // convo.addQuestion(say('Qual é a ala do apartamento da pessoa que deseja cadastrar?'), [
+        //     {
+        //         pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.endConvo = true
+        //             console.log(convo.step.state.values)
+        //             await convo.gotoThread('end_convo')
+        //         }
+        //     },
+        //     {
+        //         default: true,
+        //         handler: async (response, convo, bot) => {
+        //             await convo.gotoThread("stepAptoOther")
+        //             console.log(`ala is ${response}`);
+        //         }
+        //     }
+        // ], 'ala', 'stepAlaOther');
+
         convo.addQuestion(say('Qual é o apartamento da pessoa que deseja cadastrar?'), [
             {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
@@ -220,8 +340,10 @@ module.exports = function (controller) {
         ], 'apartamento', 'stepAptoOther');
 
 
-        convo.addAction('confirmation', 'stepAptoOther');
-        convo.addQuestion(say('*Confirmando seus dados:*\n\nNome: {{vars.nome}}\nCelular: ' + '{{vars.celular}}' + '\nApartamento: {{vars.apartamento}}\n\nTodas informações estão corretas?'), [
+        // convo.addAction('confirmation', 'stepAptoOther');
+        convo.addQuestion(say(`*Confirmando seus dados:*\n\nNome: {{vars.nome}}\nCelular: {{vars.celular}}\nApartamento: {{vars.apartamento}}\nCondomínio: ${condominioAPI.data.name}
+${ifBloco()}
+${ifAla()}\n\nTodas informações estão corretas?`), [
             {
                 pattern: "nao|Nao|Não|não|nn|Nn|NN",
                 handler: async (response, convo, bot) => {
@@ -242,7 +364,6 @@ module.exports = function (controller) {
                 handler: async (response, convo, bot) => {
                     console.log(response)
                     convo.step.state.values.endConvo = true
-                    console.log(convo.step.state.values)
                     await convo.gotoThread('end_convo')
                 }
             },
@@ -254,6 +375,9 @@ module.exports = function (controller) {
                 }
             }
         ], 'confirm', 'confirmation');
+
+        convo.addMessage(say(`Caso deseje interromper o cadastro, digite "Pare"`), 'stop_bot_conversation')
+        convo.addAction('stepCelularQuestion', 'stop_bot_conversation')
 
         convo.addMessage(say('Nome inválido. Retire todo e qualquer número e caractere especial, se houver'), 'err_Nome')
         convo.addAction('stepNome', 'err_Nome')
@@ -267,6 +391,7 @@ module.exports = function (controller) {
         convo.addMessage(say('Cadastro cancelado.'), 'end_convo')
         convo.addAction('end_convo_without_results', 'end_convo')
 
+
         convo.addMessage(say('Obrigado! Recebemos seus dados com sucesso! \nAguarde 24 horas para atualizarmos seu locker com suas informações.', message), 'agradecimento');
 
         controller.addDialog(convo);
@@ -275,7 +400,163 @@ module.exports = function (controller) {
         controller.afterDialog(MY_DIALOG_ID, async (bot, results) => {
             await bot.cancelAllDialogs();
 
-            if(!results.endConvo){
+            if(!results.endConvo && APICount == 0){
+                //recebe os resultados de todos os campos preenchidos para enviar para a api
+
+                const resultsSend = {
+                    nome: results.nome,
+                    celular: results.celular,
+                    bloco: results.bloco,
+                    apartamento: results.apartamento,
+                    ala: results.ala,
+                    condominioId: condominioAPI.data.id,
+                    lockerId: lockerID
+                }
+                try{
+                    console.log("resultsSend", resultsSend)
+                    if(apiML.sendCadastro(resultsSend)){
+
+                    }
+                    APICount = 1;
+                } catch (e){
+                    console.log(e)
+                }
+            }
+
+            if(APICount == 1){
+                console.log('RESULTS', results);
+                APICount = 2
+            }
+        });
+
+        APICount = 0;
+
+        await bot.beginDialog(MY_DIALOG_ID);
+
+        function ifBloco(){
+            let resp = "";
+        
+            if(condominioAPI.bloco){
+                resp = `Bloco: {{vars.bloco}}`
+            }
+
+            return resp;
+        }
+
+        function ifAla(){
+            let resp = "";
+        
+            if(condominioAPI.ala){
+                resp = `Ala: {{vars.ala}}`
+            }
+
+            return resp;
+        }
+
+    });
+
+
+    /****************************************************************************************************************
+
+
+    Sessão de Alterar o Cadastro
+
+    Novo Hears
+
+
+    *****************************************************************************************************************/
+
+
+    controller.hears([new RegExp(/alterar meus dados$/i), 
+                    new RegExp(/alterar dados$/i), 
+                    new RegExp(/mudar meus dados$/i), 
+                    new RegExp(/mudar dados$/i), 
+                    new RegExp(/editar dados$/i),
+                    new RegExp(/editar meus dados$/i)], 'message,direct_message', async (bot, message) => {
+
+        function say(text) {
+            return {
+                text: text,
+                channelData: {
+                    ...message?.incoming_message?.channelData,
+                    text: text
+                }
+            }
+        }
+
+        let mensagemFull = message.matches[0];
+        let lockerID = message.matches[1];
+        let lockerName = message.matches[1];
+        let MY_DIALOG_ID = `${message?.user}${'UpdateCadastro'}` || 'my-dialog-name-robot';
+        let convoUpdateCadastro = new BotkitConversation(MY_DIALOG_ID, controller);
+
+        let celAlt = message?.user;
+        var newCel = newCelF(celAlt);
+
+        let userApi = await apiML.getUser(newCel);
+        let condominiosAPI = await apiML.getCondominioByUser(newCel)
+        let condominioAPI = await apiML.getCondominio(lockerName)
+
+        convoUpdateCadastro.before('default', (convoUpdateCadastro, bot) => {
+            // console.log('Default', lockerID, lockerName);
+            convoUpdateCadastro.setVar(`name`, message?.channelData?.data?.pushname);
+            // convoUpdateCadastro.setVar(`lockerID`, lockerID);
+            // convoUpdateCadastro.setVar(`lockerName`, lockerName);
+            // convoUpdateCadastro.setVar(`countSize`, 0);
+        });
+
+        if(userApi){    
+            convoUpdateCadastro.addAction('loggedDB')
+            convoUpdateCadastro.addMessage(say(`Bem-vindo(a) ${userApi.nome}, sou o atendente da Meu Locker e estou disponível para alterar os dados de seu cadastros.`), 'loggedDB');
+            convoUpdateCadastro.addAction('stop_bot_conversation', 'loggedDB')
+        }
+        else{
+            convoUpdateCadastro.addAction('notLoggedDB')
+            convoUpdateCadastro.addMessage(say(`Para realizar o cadastro, digite o nome completo e o número usados no cadastro `), 'notLoggedDB');
+            convoUpdateCadastro.addAction('stop_bot_conversation', 'notLoggedDB')
+        }
+
+        convoUpdateCadastro.addAction('', 'notLoggedDB');
+        convoUpdateCadastro.addQuestion(say(`Quantos apartamentos existem no seu condomínio?`), [
+            {
+                pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+                handler: async (response, convoUpdateCadastro, bot) => {
+                    console.log(response)
+                    convoUpdateCadastro.step.state.values.endConvoUpdateCadastro = true
+                    await convoUpdateCadastro.gotoThread('end_convoUpdateCadastro')
+                }
+            },
+            {
+                default: true,
+                handler: async (response, convoUpdateCadastro, bot) => {
+                    console.log(response)
+                    if(true){
+
+                    }
+                    await convoUpdateCadastro.gotoThread('');
+                }
+            }
+        ], 'orcamento', '');
+
+        convoUpdateCadastro.addMessage(say(`Caso deseje interromper a alteração dos dados de cadastro, digite "Pare"`), 'stop_bot_conversation')
+        convoUpdateCadastro.addAction('', 'stop_bot_conversation')
+
+        convoUpdateCadastro.addMessage(say('Não entendi sua resposta, repita por favor', message), 'orcamento_err')
+        convoUpdateCadastro.addAction('', 'orcamento_err')
+
+        convoUpdateCadastro.addMessage(say('Cálculo de orçamento cancelado.'), 'end_convoUpdateCadastro')
+        convoUpdateCadastro.addAction('end_convoUpdateCadastro_without_results', 'end_convoUpdateCadastro')
+
+        
+
+        controller.addDialog(convoUpdateCadastro);
+
+        convoUpdateCadastro.addAction('end_convoUpdateCadastro_without_results')
+
+        controller.afterDialog(MY_DIALOG_ID, async (bot, results) => {
+            await bot.cancelAllDialogs();
+
+            if(!results.endConvoUpdateCadastro){
                 //recebe os resultados de todos os campos preenchidos para enviar para a api
             }
 
@@ -285,8 +566,9 @@ module.exports = function (controller) {
 
 
         await bot.beginDialog(MY_DIALOG_ID);
-
     });
+
+
 
     /****************************************************************************************************************
 
@@ -322,6 +604,13 @@ module.exports = function (controller) {
         let MY_DIALOG_ID = `${message?.user}${'Suporte'}` || 'my-dialog-name-robot';
         let convoSuporte = new BotkitConversation(MY_DIALOG_ID, controller);
 
+        let celSup = message?.user;
+        var newCel = newCelF(celSup);
+
+        let userApi = await apiML.getUser(newCel);
+        let condominiosAPI = await apiML.getCondominioByUser(newCel)
+        let condominioAPI = await apiML.getCondominio(lockerName)
+
         convoSuporte.before('default', (convoSuporte, bot) => {
             // console.log('Default', lockerID, lockerName);
             convoSuporte.setVar(`name`, message?.channelData?.data?.pushname);
@@ -336,19 +625,24 @@ module.exports = function (controller) {
 
         //nome = api.response
 
-        convoSuporte.addAction('notLoggedDB')
-        convoSuporte.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para solucionar seus problemas e dúvidas.`), 'notLoggedDB');
 
-        //convoSuporte.addMessage(say(`Bem-vindo(a) ${nome}, sou o atendente da Meu Locker e estou disponível para solucionar seus problemas e dúvidas.`), 'loggedDB');
-
-        convoSuporte.addAction('stepAskProblem', 'notLoggedDB');
+        if(userApi){
+            convoSuporte.addAction('loggedDB');
+            convoSuporte.addMessage(say(`Bem-vindo(a) ${userApi.nome}, sou o atendente da Meu Locker e estou disponível para solucionar seus problemas e dúvidas.`), 'loggedDB');
+            convoSuporte.addAction('stop_bot_conversation', 'loggedDB');
+        }
+        else{
+            convoSuporte.addAction('notLoggedDB')
+            convoSuporte.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para solucionar seus problemas e dúvidas.`), 'notLoggedDB');
+            convoSuporte.addAction('stop_bot_conversation', 'notLoggedDB');
+        }
+    
         convoSuporte.addQuestion(say(`Qual é o problema que está tendo?`), [
             {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
                 handler: async (response, convoSuporte, bot) => {
                     console.log(response)
                     convoSuporte.step.state.values.endConvoSuporte = true
-                    console.log(convoSuporte.step.state.values)
                     await convoSuporte.gotoThread('end_convoSuporte')
                 }
             },
@@ -356,10 +650,13 @@ module.exports = function (controller) {
                 default: true,
                 handler: async (response, convoSuporte, bot) => {
                     console.log(response)
-                    await convoSuporte.gotoThread('suporteQuestion_err');
+                    await convoSuporte.gotoThread('end_convoSuporte_without_results');
                 }
             }
         ], 'suporteQuestion', 'stepAskProblem');
+
+        convoSuporte.addMessage(say(`Caso deseje interromper o suporte, digite "Pare"`), 'stop_bot_conversation')
+        convoSuporte.addAction('stepAskProblem', 'stop_bot_conversation')
 
         convoSuporte.addMessage(say('Não entendi sua resposta, repita por favor', message), 'suporteQuestion_err')
         convoSuporte.addAction('stepAskProblem', 'suporteQuestion_err')
@@ -424,6 +721,13 @@ module.exports = function (controller) {
         let MY_DIALOG_ID = `${message?.user}${'Media'}` || 'my-dialog-name-robot';
         let convoMedia = new BotkitConversation(MY_DIALOG_ID, controller);
 
+        let celMedia = message?.user;
+        var newCel = newCelF(celMedia);
+
+        let userApi = await apiML.getUser(newCel);
+        let condominiosAPI = await apiML.getCondominioByUser(newCel)
+        let condominioAPI = await apiML.getCondominio(lockerName)
+
         convoMedia.before('default', (convoMedia, bot) => {
             // console.log('Default', lockerID, lockerName);
             convoMedia.setVar(`name`, message?.channelData?.data?.pushname);
@@ -432,8 +736,16 @@ module.exports = function (controller) {
             // convoMedia.setVar(`countSize`, 0);
         });
 
-        convoMedia.addAction('notLoggedDB')
-        convoMedia.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para calcular o seu orçamento.`), 'notLoggedDB');
+        if(userApi){
+            convoMedia.addAction('loggedDB');
+            convoMedia.addMessage(say(`Bem-vindo(a) ${userApi.nome}, sou o atendente da Meu Locker e estou disponível para calcular o seu orçamento.`), 'loggedDB');            
+            convoMedia.addAction('stop_bot_conversation', 'loggedDB');
+        }
+        else{
+            convoMedia.addAction('notLoggedDB')
+            convoMedia.addMessage(say(`Bem-vindo(a) {{vars.name}}, sou o atendente da Meu Locker e estou disponível para calcular o seu orçamento.`), 'notLoggedDB');            
+            convoMedia.addAction('stop_bot_conversation', 'notLoggedDB');
+        }
 
         convoMedia.addAction('stepAskOrcamento', 'notLoggedDB');
         convoMedia.addQuestion(say(`Quantos apartamentos existem no seu condomínio?`), [
@@ -442,7 +754,6 @@ module.exports = function (controller) {
                 handler: async (response, convoMedia, bot) => {
                     console.log(response)
                     convoMedia.step.state.values.endConvoMedia = true
-                    console.log(convoMedia.step.state.values)
                     await convoMedia.gotoThread('end_convoMedia')
                 }
             },
@@ -458,11 +769,11 @@ module.exports = function (controller) {
             }
         ], 'orcamento', 'stepAskOrcamento');
 
+        convoMedia.addMessage(say(`Caso deseje interromper o cálculo do orçamento, digite "Pare"`), 'stop_bot_conversation')
+        convoMedia.addAction('stepAskOrcamento', 'stop_bot_conversation')
+
         convoMedia.addMessage(say('Não entendi sua resposta, repita por favor', message), 'orcamento_err')
         convoMedia.addAction('stepCelularQuestion', 'orcamento_err')
-
-
-
 
 
         convoMedia.addMessage(say('Cálculo de orçamento cancelado.'), 'end_convoMedia')
@@ -475,15 +786,31 @@ module.exports = function (controller) {
         controller.afterDialog(MY_DIALOG_ID, async (bot, results) => {
             await bot.cancelAllDialogs();
 
-            if(!results.endConvoMedia){
+            if(!results?.endConvoMedia && APICount == 0){
+                //recebe os resultados de todos os campos preenchidos para enviar para a api
 
+                const resultsSend = {
+                    
+                }
+                try{
+                    apiML.sendOrcamento(resultsSend);
+                    APICount = 1;
+                } catch (e){
+                    // sendCadastroError()
+                    console.log(e)
+                }
             }
-            //recebe os resultados de todos os campos preenchidos para enviar para a api
+
+            if(APICount == 1){
+                console.log('RESULTS', results);
+                APICount = 2
+            }
+
 
             console.log('RESULTS', results);
         });
 
-
+        APICount = 0;
 
         await bot.beginDialog(MY_DIALOG_ID);
     });
@@ -547,4 +874,18 @@ function checkNome(nome){
     }
 
     return bool
+}
+
+function newCelF(cel){
+    let newCel = '';
+    for(let i = 0; i < cel.length - 5; i++){
+        if(i == 4){
+            newCel += 9 + cel.charAt(i)
+        }
+        else{
+            newCel += cel.charAt(i)
+        }
+    }
+
+    return newCel
 }
