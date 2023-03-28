@@ -46,16 +46,23 @@ module.exports = class MeuLockerAPI {
 
   async getCondominio(id) {
 
+    let bool = true
+
     try{
 
-      console.log("id", id)
       //id = "0869bab1-f9fb-41bc-9d4e-c41131120c4a";
 
-      let resp = await fetch(`https://sandboxcci.qira.com.br/v1/chatbot/condominio/locker?lockerId=${id}`);  
+      let resp = await fetch(`https://apicci.qira.com.br/v1/chatbot/condominio/locker?lockerId=${id}`);  
+      //let resp = await fetch(`https://sandboxcci.qira.com.br/v1/chatbot/condominio/locker?lockerId=${id}`);  
       const resposta = await resp.json()
 
       const respostasS = {
         ...resposta,
+        //ordemPerguntas: 'abun',
+      }
+
+      if(!respostasS.success){
+        respostasS = false;
       }
 
       console.log(respostasS)
@@ -63,7 +70,11 @@ module.exports = class MeuLockerAPI {
       return respostasS;
 
     }catch(e){
+      bool = false
+      console.log("erro foi detectado na api ml")
       console.error(e)
+
+      return bool
     }
   }
 
@@ -100,16 +111,30 @@ module.exports = class MeuLockerAPI {
 
       const resultsSend = JSON.stringify(results)
 
-      console.log("results: ", results)
-      console.log("resultsSend: ", resultsSend)
+      console.log(results)
 
-      fetch('https://sandboxcci.qira.com.br/v1/chatbot/condomino', {
+      // fetch('https://sandboxcci.qira.com.br/v1/chatbot/condomino', {
+      //   method: "POST",
+      //   headers: {'Content-Type': "application/json; charset=UTF-8"},
+      //   body: resultsSend
+      // }).then(response => {
+      //   //console.log("response", response)
+      //   response.json()
+      // }) 
+      // .then(json => {
+      //   //console.log('json: ', json)
+      // })
+      // .catch(err => {
+      //   bool = false;
+      //   console.log('Error: ', err)
+      // });
+      fetch('https://apicci.qira.com.br/v1/chatbot/condomino', {
         method: "POST",
         headers: {'Content-Type': "application/json; charset=UTF-8"},
         body: resultsSend
       })
       .then(response => {
-        console.log("response", response)
+        //console.log("response", response)
         response.json()
       }) 
       .then(json => console.log(json))
@@ -122,11 +147,11 @@ module.exports = class MeuLockerAPI {
       // console.log("resposta: ", resposta)
 
     }catch(e){
-      console.error(e)
+      bool = false
+      console.error('Error catch: ', e)
     }
 
-    return bool
-
+    return bool;
   }
 
   async sendOrcamento(results){

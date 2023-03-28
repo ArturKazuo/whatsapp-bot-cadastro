@@ -55,11 +55,14 @@ module.exports = function (controller) {
             }
         }
 
+        let gambiApto = false;
+
         let mensagemFull = message.matches[0];
         let lockerID = message.matches[1];
         let lockerName = message.matches[1];
         let MY_DIALOG_ID = `${message?.user}${'Cadastro'}` || 'my-dialog-name-robot';
         let convo = new BotkitConversation(MY_DIALOG_ID, controller);
+
 
         let celCad = message?.user;
         var newCel = newCelF(celCad);
@@ -67,6 +70,10 @@ module.exports = function (controller) {
         let userApi = await apiML.getUser(newCel);
         //let condominiosAPI = await apiML.getCondominioByUser(newCel)
         let condominioAPI = await apiML.getCondominio(lockerID)
+        if(condominioAPI == false){
+            console.log("foisaoidsoa")
+            convo.addAction('errorGetCondominio')
+        }
 
         convo.before('default', (convo, bot) => {
             // console.log('Default', lockerID, lockerName);
@@ -76,6 +83,7 @@ module.exports = function (controller) {
             // convo.setVar(`countSize`, 0);
         });
 
+        
 
 
         // if(userApi){
@@ -95,7 +103,7 @@ module.exports = function (controller) {
                 handler: async (response, convo, bot) => {
                     console.log(response)
                     convo.step.state.values.celular = addSimbolos(newCel)
-                    await convo.gotoThread('stepNome');
+                    //await convo.gotoThread('stepNome');
                 }
             },
             {
@@ -122,6 +130,20 @@ module.exports = function (controller) {
                 }
             }
         ], 'celularQuestion', 'stepCelularQuestion');
+
+        if(condominioAPI.data.typeOperation == 'abun'){ 
+            convo.addAction('stepAla', 'stepCelularQuestion')
+        }
+        else if(condominioAPI.data.typeOperation == 'un'){
+            convo.addAction('stepApto','stepCelularQuestion')
+        } 
+        else if(condominioAPI.data.typeOperation == 'n'){ 
+            convo.addAction('stepNome','stepCelularQuestion')
+            gambiApto = true;
+        }
+        else if(!condominioAPI.data.typeOperation){
+            convo.addAction('stepNome','stepCelularQuestion')
+        }
 
         convo.addMessage(say('Não entendi sua resposta, repita por favor', message), 'celQuestion_err')
         convo.addAction('stepCelularQuestion', 'celQuestion_err')
@@ -154,7 +176,23 @@ module.exports = function (controller) {
             }
         ], 'celular', 'stepCelular');
 
-        convo.addQuestion(say('Qual é o nome completo da pessoa que deseja cadastrar?'), [
+
+        if(condominioAPI.data.typeOperation == 'abun'){
+            convo.addAction('stepAlaOther','stepCelular')
+        }
+        else if(condominioAPI.data.typeOperation == 'un'){
+            convo.addAction('stepAptoOther','stepCelular')
+        } 
+        else if(condominioAPI.data.typeOperation == 'n'){ 
+            convo.addAction('stepNomeOther','stepCelular')
+            gambiApto = true;
+        }
+        else if(!condominioAPI.data.typeOperation){
+            convo.addAction('stepNome','stepCelularQuestion')
+        }
+
+
+        convo.addQuestion(say('Qual é a ala em que seu apartamento se encontra?'), [
             {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
                 handler: async (response, convo, bot) => {
@@ -167,22 +205,52 @@ module.exports = function (controller) {
             {
                 default: true,
                 handler: async (response, convo, bot) => {
-                    console.log(response)
-                    if(checkNome(response)){ //returns true or false
-                        // if(condominioAPI.bloco){
-                        //     await convo.gotoThread('stepBlocoOther')
-                        // }
-                        // else{
-                        //     await convo.gotoThread('stepAptoOther')
-                        // }
-                        await convo.gotoThread('stepAptoOther')
-                    }
-                    else{
-                        await convo.gotoThread('err_Nome')
-                    }
+                    convo.step.state.values.ala = `\nAla: ${response}`
+                    await convo.gotoThread("stepBloco")
+                    console.log(`ala is ${response}`);
                 }
             }
-        ], 'nome', 'stepNomeOther');
+        ], 'ala', 'stepAla');
+
+        convo.addQuestion(say('Qual é o seu bloco de condomínio?'), [
+            {
+                pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+                handler: async (response, convo, bot) => {
+                    console.log(response)
+                    convo.step.state.values.endConvo = true
+                    console.log(convo.step.state.values)
+                    await convo.gotoThread('end_convo')
+                }
+            },
+            {
+                default: true,
+                handler: async (response, convo, bot) => {
+                    convo.step.state.values.bloco = `\nBloco: ${response}`
+                    await convo.gotoThread("stepApto")
+                    console.log(`bloco is ${response}`);
+                }
+            }
+        ], 'bloco', 'stepBloco');
+
+        convo.addQuestion(say('Qual é o seu apartamento?'), [
+            {
+                pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+                handler: async (response, convo, bot) => {
+                    console.log(response)
+                    convo.step.state.values.endConvo = true
+                    console.log(convo.step.state.values)
+                    await convo.gotoThread('end_convo')
+                }
+            },
+            {
+                default: true,
+                handler: async (response, convo, bot) => {
+                    convo.vars.apartamento = `\nApartamento: ${response}`
+                    console.log(`apto is ${response}`);
+                    await convo.gotoThread('stepNome')
+                }
+            }
+        ], 'apartamento', 'stepApto');
 
         convo.addQuestion(say('Qual é o seu nome completo?'), [
             {
@@ -199,14 +267,11 @@ module.exports = function (controller) {
                 handler: async (response, convo, bot) => {
                     console.log(response)
                     if(checkNome(response)){ //returns true or false
-                        // if(condominioAPI.bloco){
-                        //     console.log("bloco")
-                        //     await convo.gotoThread('stepBloco')
-                        // }
-                        // else {
-                        //     await convo.gotoThread('stepApto')
-                        // }
-                        await convo.gotoThread('stepApto')
+                        if(gambiApto){
+                            convo.vars.apartamento = '';
+                            convo.vars.apartamentoGambi = 'Defina o destinatário';
+                        }
+                        await convo.gotoThread('confirmation')
                     }
                     else{
                         await convo.gotoThread('err_Nome')
@@ -215,50 +280,13 @@ module.exports = function (controller) {
             }
         ], 'nome', 'stepNome');
 
-        // convo.addQuestion(say('Qual é o seu bloco de condomínio?'), [
-        //     {
-        //         pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
-        //         handler: async (response, convo, bot) => {
-        //             console.log(response)
-        //             convo.step.state.values.endConvo = true
-        //             console.log(convo.step.state.values)
-        //             await convo.gotoThread('end_convo')
-        //         }
-        //     },
-        //     {
-        //         default: true,
-        //         handler: async (response, convo, bot) => {
-        //             if(condominioAPI.ala){
-        //                 await convo.gotoThread('stepAla');
-        //             }
-        //             else{
-        //                 await convo.gotoThread("stepApto")
-        //             }
-        //             console.log(`bloco is ${response}`);
-        //         }
-        //     }
-        // ], 'bloco', 'stepBloco');
 
-        // convo.addQuestion(say('Qual é a ala em que seu apartamento se encontra?'), [
-        //     {
-        //         pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
-        //         handler: async (response, convo, bot) => {
-        //             console.log(response)
-        //             convo.step.state.values.endConvo = true
-        //             console.log(convo.step.state.values)
-        //             await convo.gotoThread('end_convo')
-        //         }
-        //     },
-        //     {
-        //         default: true,
-        //         handler: async (response, convo, bot) => {
-        //             await convo.gotoThread("stepApto")
-        //             console.log(`ala is ${response}`);
-        //         }
-        //     }
-        // ], 'ala', 'stepAla');
 
-        convo.addQuestion(say('Qual é o seu apartamento?'), [
+        //convo.addAction('stepAskPet', 'stepApto');
+
+
+
+        convo.addQuestion(say('Qual é a ala do apartamento da pessoa que deseja cadastrar?'), [
             {
                 pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
                 handler: async (response, convo, bot) => {
@@ -271,55 +299,32 @@ module.exports = function (controller) {
             {
                 default: true,
                 handler: async (response, convo, bot) => {
-                    console.log(`apto is ${response}`);
+                    convo.step.state.values.ala = `\nAla: ${response}`
+                    await convo.gotoThread("stepBlocoOther")
+                    console.log(`ala is ${response}`);
                 }
             }
-        ], 'apartamento', 'stepApto');
+        ], 'ala', 'stepAlaOther');
 
-        convo.addAction('confirmation', 'stepApto');
-
-        // convo.addQuestion(say('Qual é o bloco do condomínio da pessoa que deseja cadastrar?'), [
-        //     {
-        //         pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
-        //         handler: async (response, convo, bot) => {
-        //             console.log(response)
-        //             convo.step.state.values.endConvo = true
-        //             console.log(convo.step.state.values)
-        //             await convo.gotoThread('end_convo')
-        //         }
-        //     },
-        //     {
-        //         default: true,
-        //         handler: async (response, convo, bot) => {
-        //             if(condominioAPI.ala){
-        //                 await convo.gotoThread('stepAlaOther');
-        //             }
-        //             else{
-        //                 await convo.gotoThread("stepAptoOther")
-        //             }
-        //             console.log(`bloco is ${response}`);
-        //         }
-        //     }
-        // ], 'bloco', 'stepBlocoOther');
-
-        // convo.addQuestion(say('Qual é a ala do apartamento da pessoa que deseja cadastrar?'), [
-        //     {
-        //         pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
-        //         handler: async (response, convo, bot) => {
-        //             console.log(response)
-        //             convo.step.state.values.endConvo = true
-        //             console.log(convo.step.state.values)
-        //             await convo.gotoThread('end_convo')
-        //         }
-        //     },
-        //     {
-        //         default: true,
-        //         handler: async (response, convo, bot) => {
-        //             await convo.gotoThread("stepAptoOther")
-        //             console.log(`ala is ${response}`);
-        //         }
-        //     }
-        // ], 'ala', 'stepAlaOther');
+        convo.addQuestion(say('Qual é o bloco do condomínio da pessoa que deseja cadastrar?'), [
+            {
+                pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+                handler: async (response, convo, bot) => {
+                    console.log(response)
+                    convo.step.state.values.endConvo = true
+                    console.log(convo.step.state.values)
+                    await convo.gotoThread('end_convo')
+                }
+            },
+            {
+                default: true,
+                handler: async (response, convo, bot) => {
+                    convo.step.state.values.bloco = `\nBloco: ${response}`
+                    await convo.gotoThread("stepAptoOther")
+                    console.log(`bloco is ${response}`);
+                }
+            }
+        ], 'bloco', 'stepBlocoOther');
 
         convo.addQuestion(say('Qual é o apartamento da pessoa que deseja cadastrar?'), [
             {
@@ -334,20 +339,170 @@ module.exports = function (controller) {
             {
                 default: true,
                 handler: async (response, convo, bot) => {
+                    convo.vars.apartamento = `\nApartamento: ${response}`
+                    await convo.gotoThread('stepNomeOther')
                     console.log(`apto is ${response}`);
                 }
             }
         ], 'apartamento', 'stepAptoOther');
 
+        convo.addQuestion(say('Qual é o nome completo da pessoa que deseja cadastrar?'), [
+            {
+                pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+                handler: async (response, convo, bot) => {
+                    console.log(response)
+                    convo.step.state.values.endConvo = true
+                    console.log(convo.step.state.values)
+                    await convo.gotoThread('end_convo')
+                }
+            },
+            {
+                default: true,
+                handler: async (response, convo, bot) => {
+                    console.log(response)
+                    if(checkNome(response)){ //returns true or false
+                        if(gambiApto){
+                            convo.vars.apartamento = '';
+                            convo.vars.apartamentoGambi = 'Defina o destinatário';
+                        }
+                        await convo.gotoThread('confirmation')
+                    }
+                    else{
+                        await convo.gotoThread('err_Nome')
+                    }
+                }
+            }
+        ], 'nome', 'stepNomeOther');
 
-        // convo.addAction('confirmation', 'stepAptoOther');
-        convo.addQuestion(say(`*Confirmando seus dados:*\n\nNome: {{vars.nome}}\nCelular: {{vars.celular}}\nApartamento: {{vars.apartamento}}\nCondomínio: ${condominioAPI.data.name}
-${ifBloco()}
-${ifAla()}\n\nTodas informações estão corretas?`), [
+
+
+        // convo.addQuestion(say("Você tem algum animal de estimação no apartamento?"), [
+        //     {
+        //         pattern: "sim|Sim|ss|SS|Ss",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.pet= true
+        //             await convo.gotoThread('stepAskPetSpecies');
+        //         }
+        //     },
+        //     {
+        //         pattern: "não|Não|nn|NN|Nn|nao|Nao",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.pet = false
+        //             await convo.gotoThread('confirmation');
+        //         }
+        //     },
+        //     {
+        //         pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.endConvo = true
+        //             console.log(convo.step.state.values)
+        //             await convo.gotoThread('end_convo')
+        //         }
+        //     },
+        //     {
+        //         default: true,
+        //         handler: async (response, convo, bot) => {
+        //             await convo.gotoThread('errorAskPet')
+        //         }
+        //     }
+        // ], 'pet', 'stepAskPet')
+
+        // convo.addQuestion(say("A pessoa possui algum animal de estimação no apartamento?"), [
+        //     {
+        //         pattern: "sim|Sim|ss|SS|Ss",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.pet = true
+        //             await convo.gotoThread('stepAskPetSpecies');
+        //         }
+        //     },
+        //     {
+        //         pattern: "não|Não|nn|NN|Nn|nao|Nao",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.pet = false
+        //             await convo.gotoThread('confirmation');
+        //         }
+        //     },
+        //     {
+        //         pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.endConvo = true
+        //             console.log(convo.step.state.values)
+        //             await convo.gotoThread('end_convo')
+        //         }
+        //     },
+        //     {
+        //         default: true,
+        //         handler: async (response, convo, bot) => {
+        //             await convo.gotoThread('errorAskPet')
+        //         }
+        //     }
+        // ], 'pet', 'stepAskPetOther')
+
+        // convo.addQuestion(say("Qual é o tipo do animal de estimação (cachorro, gato, etc...)?"), [
+        //     {
+        //         pattern: "cachorro|Cachorro|Cão|Cao|Canino|cão|cao|canino",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.speciesPet = "\nAnimal de estimação: cachorro" 
+        //         }
+        //     },
+        //     {
+        //         pattern: "Gato|gato|Felino|felino",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.speciesPet = "\nAnimal de estimação: gato" 
+        //         }
+        //     },
+        //     {
+        //         pattern: "Hamster|hamster",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.speciesPet = "\nAnimal de estimação: hamster" 
+        //         }
+        //     },
+        //     {
+        //         pattern: "Piriquito|piriquito|Periquito|periquito|Papagaio|papagaio",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.speciesPet = "\nAnimal de estimação: ave" 
+        //         }
+        //     },
+        //     {
+        //         pattern: "cancelar|cancele|pare|para|Cancelar|Cancele|Cancel|cancel|Pare|Para|Cancela|cancela",
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.endConvo = true
+        //             console.log(convo.step.state.values)
+        //             await convo.gotoThread('end_convo')
+        //         }
+        //     },
+        //     {
+        //         default: true,
+        //         handler: async (response, convo, bot) => {
+        //             console.log(response)
+        //             convo.step.state.values.speciesPet = `\nAnimal de estimação: ${response}`
+        //         }
+        //     }
+        // ], 'speciesPet', 'stepAskPetSpecies')
+        // convo.addAction('confirmation', 'stepAskPetSpecies')
+
+        // convo.addMessage(say("Não entendi sua mensagem. Responda 'sim' ou 'nao'."), 'errorAskPet')
+        // convo.addAction('stepAskPet','errorAskPet')
+
+
+
+        convo.addQuestion(say(`*Confirmando seus dados:*\n\nNome: {{vars.nome}}\nCelular: {{vars.celular}}{{vars.apartamento}}{{vars.bloco}}{{vars.ala}}\nCondomínio: ${ifCondominio()}{{vars.speciesPet}}\n\nTodas informações estão corretas?`), [
             {
                 pattern: "nao|Nao|Não|não|nn|Nn|NN",
                 handler: async (response, convo, bot) => {
                     console.log('não')
+                    convo.vars.speciesPet = null
                     await convo.gotoThread('stepCelularQuestion');
                 }
             },
@@ -391,17 +546,38 @@ ${ifAla()}\n\nTodas informações estão corretas?`), [
         convo.addMessage(say('Cadastro cancelado.'), 'end_convo')
         convo.addAction('end_convo_without_results', 'end_convo')
 
+        convo.say(say("Houve um erro durante o cadastro, tente novamente", message))
+        convo.addAction('stepCelularQuestion')
+
+        convo.addMessage(say("Houve um erro durante o cadastro. Reenvie a mensagem anterior com o código de locker correto."), 'errorGetCondominio')
+        convo.addAction('end_convo_without_results', 'errorGetCondominio')
 
         convo.addMessage(say('Obrigado! Recebemos seus dados com sucesso! \nAguarde 24 horas para atualizarmos seu locker com suas informações.', message), 'agradecimento');
 
         controller.addDialog(convo);
         convo.addAction('end_convo_without_results')
 
-        controller.afterDialog(MY_DIALOG_ID, async (bot, results) => {
-            await bot.cancelAllDialogs();
 
-            if(!results.endConvo && APICount == 0){
+        controller.afterDialog(MY_DIALOG_ID, async (bot, results) => {
+
+            if(!results.endConvo && APICount == 0 && condominioAPI){
                 //recebe os resultados de todos os campos preenchidos para enviar para a api
+
+                if(results.speciesPet){
+                    results.speciesPet = results.speciesPet.replace('\nAnimal de estimação: ', '')
+                }
+                if(results.bloco){
+                    results.bloco = results.bloco.replace('\nBloco: ', '')
+                }
+                if(results.ala){
+                    results.ala = results.ala.replace('\nAla: ', '')
+                }
+                if(results.apartamento){
+                    results.apartamento = results.apartamento.replace('\nApartamento: ', '')
+                }
+                if(gambiApto){
+                    results.apartamento = results.apartamentoGambi
+                }
 
                 const resultsSend = {
                     nome: results.nome,
@@ -413,9 +589,10 @@ ${ifAla()}\n\nTodas informações estão corretas?`), [
                     lockerId: lockerID
                 }
                 try{
-                    console.log("resultsSend", resultsSend)
-                    if(apiML.sendCadastro(resultsSend)){
-
+                    //console.log("resultsSend", resultsSend)
+                    const resp = await apiML.sendCadastro(resultsSend);
+                    if(!resp){
+                        console.log("erro foi detectado")
                     }
                     APICount = 1;
                 } catch (e){
@@ -427,33 +604,48 @@ ${ifAla()}\n\nTodas informações estão corretas?`), [
                 console.log('RESULTS', results);
                 APICount = 2
             }
+
+            await bot.cancelAllDialogs();
+
         });
 
         APICount = 0;
 
         await bot.beginDialog(MY_DIALOG_ID);
 
-        function ifBloco(){
+        // function ifBloco(){
+        //     let resp = "";
+        
+        //     if(condominioAPI.bloco){
+        //         resp = `Bloco: {{vars.bloco}}`
+        //     }
+
+        //     return resp;
+        // }
+
+        // function ifAla(){
+        //     let resp = "";
+        
+        //     if(condominioAPI.ala){
+        //         resp = `Ala: {{vars.ala}}`
+        //     }
+
+        //     return resp;
+        // }
+
+        function ifCondominio(){
             let resp = "";
         
-            if(condominioAPI.bloco){
-                resp = `Bloco: {{vars.bloco}}`
-            }
-
-            return resp;
-        }
-
-        function ifAla(){
-            let resp = "";
-        
-            if(condominioAPI.ala){
-                resp = `Ala: {{vars.ala}}`
+            if(condominioAPI){
+                resp = `${condominioAPI.data.name}`
             }
 
             return resp;
         }
 
     });
+
+    
 
 
     /****************************************************************************************************************
